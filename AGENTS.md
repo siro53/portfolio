@@ -6,7 +6,7 @@ AI コーディングエージェント向けのプロジェクト指針です�
 
 - Astro 7 + TypeScript（strict）製のブログテーマ **AstroPaper v7** をベースにした個人ブログ
 - スタイリングは Tailwind CSS v4（`@tailwindcss/vite`）と `@tailwindcss/typography`
-- GitHub Pages（`https://siro53.github.io/portfolio/`）で公開。base パスは `/portfolio`
+- GitHub Pages（`https://siro53.github.io/portfolio/`）で公開。base パスは `/portfolio`。配信元は `gh-pages` ブランチで、GitHub Actions がビルド結果を push する（詳細は「デプロイと PR プレビュー」）
 - パッケージマネージャは **pnpm**（npm / yarn は使わない）
 - Node.js は 22.23.4 以上が必須（`.nvmrc` 参照）。nvm 利用時は作業前に `nvm use` を実行する
 
@@ -64,10 +64,20 @@ astro dev --background
 ### 設定ファイル
 
 - サイト名・説明・著者・SNS リンク・機能の ON/OFF は `astro-paper.config.ts` で管理する。`src/config.ts` は直接編集しない
-- `astro.config.ts` の `base` と `astro-paper.config.ts` の `site.url` はリポジトリ名に合わせている。リポジトリ名を変えない限り変更しない
+- `astro.config.ts` の `PRODUCTION_BASE` と `astro-paper.config.ts` の `site.url` はリポジトリ名に合わせている。リポジトリ名を変えない限り変更しない。`base` と `site` は環境変数 `PREVIEW_BASE_PATH` があればそれを使い、無ければ本番値になる（PR プレビュー用。下記参照）
 - SNS アイコンは `src/assets/icons/socials/` の SVG ファイル名と `socials[].name` を一致させる
 - About ページはこのサイトでは使わないため削除済み（`src/pages/about.astro` と `pages` コレクションは存在しない）
-- `.github/workflows/deploy.yml` は `main` への push で自動デプロイする。Node / pnpm のバージョンを変える場合はここも合わせる
+- `.github/workflows/deploy.yml`（本番）と `.github/workflows/preview.yml`（PR プレビュー）は `.nvmrc` と `package.json` の `packageManager` から Node / pnpm のバージョンを読む。バージョンを変える場合はその 2 ファイルを更新する
+
+### デプロイと PR プレビュー
+
+- GitHub Pages は **`gh-pages` ブランチ**（Settings → Pages → Deploy from a branch）から配信する。`gh-pages` は GitHub Actions が書き込む専用ブランチなので、手で編集・コミットしない
+- `main` への push で `deploy.yml` が `pnpm build` の結果を `gh-pages` の直下に配置する。このとき `pr-preview/` は `clean-exclude` で残し、`force: false` で rebase する。この 2 つの設定を外すと進行中の PR プレビューが消える
+- PR（同一リポジトリのブランチから）を開く・更新すると `preview.yml` が `PREVIEW_BASE_PATH=/portfolio/pr-preview/pr-<番号>` を付けてビルドし、`gh-pages` の `pr-preview/pr-<番号>/` に配置して PR にプレビュー URL をコメントする。PR を閉じるとプレビューは削除される
+- `PREVIEW_BASE_PATH` の値は `rossjrw/pr-preview-action` の配置先（`umbrella-dir` / `pr-<番号>`）と一致していなければならない。片方を変えるときは必ずもう片方も変える
+- プレビューのビルドでは `src/layouts/Layout.astro` が `<meta name="robots" content="noindex, nofollow">` を出力する。`PREVIEW_BASE_PATH` は `astro.config.ts` の `env.schema` に登録してあり、`astro:env/server` から読む
+- `public/.nojekyll` はブランチ配信時に GitHub Pages の Jekyll 処理を止めるためのファイル。これが無いと `_astro/` 配下が配信されない。削除しない
+- ローカルでプレビューと同じ条件のビルドを確認するには `PREVIEW_BASE_PATH=/portfolio/pr-preview/pr-0 pnpm build` を実行する
 
 ### スタイリング（Tailwind CSS v4）
 
@@ -84,10 +94,11 @@ astro dev --background
 ## ディレクトリ構成
 
 ```text
-├── .github/workflows/deploy.yml   GitHub Pages デプロイ用ワークフロー
+├── .github/workflows/deploy.yml   本番デプロイ（main → gh-pages 直下）
+├── .github/workflows/preview.yml  PR プレビュー（PR → gh-pages の pr-preview/pr-<番号>/）
 ├── astro-paper.config.ts          テーマ設定（サイト名、SNS、機能フラグ）
 ├── astro.config.ts                Astro 設定（base、i18n、フォント、Markdown プラグイン）
-├── public/                        静的ファイル（favicon、デフォルト OG 画像）
+├── public/                        静的ファイル（favicon、デフォルト OG 画像、.nojekyll）
 ├── src/
 │   ├── assets/icons/              UI / SNS アイコン（SVG）
 │   ├── components/                共通コンポーネント

@@ -1,0 +1,61 @@
+name: Deploy PR preview
+
+# PR を開く・更新するとプレビューサイトをビルドし、gh-pages ブランチの
+# pr-preview/pr-<番号>/ に配置して PR にコメントで URL を知らせる。PR を閉じると削除する。
+# プレビュー URL: https://siro53.github.io/portfolio/pr-preview/pr-<番号>/
+
+on:
+  pull_request:
+    types: [opened, reopened, synchronize, closed]
+
+permissions:
+  contents: write # gh-pages ブランチへの push
+  pull-requests: write # プレビュー URL のコメント
+
+concurrency:
+  group: preview-pr-${{ github.event.number }}
+  cancel-in-progress: true
+
+jobs:
+  preview:
+    # フォークからの PR はトークンに書き込み権限がないので対象外
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up pnpm
+        if: github.event.action != 'closed'
+        uses: pnpm/action-setup@v6 # package.json の packageManager からバージョンを読む
+
+      - name: Set up Node.js
+        if: github.event.action != 'closed'
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        if: github.event.action != 'closed'
+        run: pnpm install --frozen-lockfile
+
+      - name: Build for preview path
+        if: github.event.action != 'closed'
+        run: pnpm build
+        env:
+          # astro.config.ts がこの値で base / site を差し替える。
+          # pr-preview-action の配置先（umbrella-dir/pr-<番号>）と一致させること
+          PREVIEW_BASE_PATH: /portfolio/pr-preview/pr-${{ github.event.number }}
+
+      - name: Deploy or remove preview
+        uses: rossjrw/pr-preview-action@v1
+        with:
+          source-dir: dist
+          preview-branch: gh-pages
+          umbrella-dir: pr-preview
+          # opened / reopened / synchronize ならデプロイ、closed なら削除
+          action: auto
+          qr-code: false
+          # true にすると Pages の配信完了を待ってからコメントする（permissions に pages: read が必要）
+          wait-for-pages-deployment: false
