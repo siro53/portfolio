@@ -54,8 +54,8 @@ export default defineConfig({
     processor: unified({
       remarkPlugins: [
         remarkMath,
-        remarkToc,
-        [remarkCollapse, { test: "Table of contents" }],
+        [remarkToc, { heading: "目次" }],
+        [remarkCollapse, { test: "目次", summary: "目次を開く" }],
       ],
       rehypePlugins: [rehypeCallouts, rehypeKatex, rehypeTableWrapper],
     }),
