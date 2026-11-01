@@ -1,0 +1,43 @@
+---
+title: "二項係数の prefix sum"
+description: "二項係数の prefix sum S(n, m) = Σ_{k=0}^{m} C(n, k) を多数のクエリに対して求める問題を、S(n, m) の 4 つの関係式を使って Mo's Algorithm（オフライン）や平方分割（オンライン）で解く方法をまとめます。"
+pubDatetime: 2023-02-04T02:23:10+09:00
+modDatetime: 2023-02-15T13:55:25+09:00
+tags: ["競プロ", "数え上げ", "二項係数", "Mo's Algorithm"]
+---
+
+## 目次
+
+## 問題
+
+> $S(n, m) = \sum_{k=0}^{m} \binom{n}{k}$ とする。
+> クエリが $Q$ 個与えられる。$i$ 番目のクエリで $n_i, m_i$ が与えられるので、$S(n_i, m_i)$ を $\textrm{mod}\space 998244353$ で答えよ。
+
+## 解法
+
+まず、$S(n, m)$ について次が成り立つ。この 4 つの関係式を (☆) とする。
+
+$$
+\begin{aligned}
+S(n, m+1) &= S(n, m) + \binom{n}{m+1} \\
+S(n, m-1) &= S(n, m) - \binom{n}{m} \\
+S(n+1, m) &= \sum_{k=0}^{m} \left( \binom{n}{k} + \binom{n}{k-1} \right) = 2 S(n, m) - \binom{n}{m} \\
+S(n-1, m) &= \frac{S(n, m) + \binom{n-1}{m}}{2}
+\end{aligned}
+$$
+
+これらの値は $S(n, m)$ が分かっていれば（階乗などの前計算を前提として）$O(1)$ で計算できる。
+よって、$M = \max(n_i)$ とすると、Mo's Algorithm によりオフラインで $O(M\sqrt{Q})$ で解ける。
+
+オンラインで解くこともできる。
+$B = \sqrt{M}$ として、$n = B, 2B, 3B, \dots$ について $S(n, m)\space(0 \leq m \leq n)$ を $O(M\sqrt{M})$ で前計算する。
+次に各クエリにおいて、前計算したものを使って $n_i$ に最も近い $n$ から (☆) を使って差分を愚直に計算する。
+全体として $O((M+Q)\sqrt{M})$ で計算できる。
+
+## 出典
+
+- https://yukicoder.me/problems/no/2206
+  - 提出（online）: https://yukicoder.me/submissions/837416
+- https://twitter.com/noshi91/status/1349778789669105664
+- https://atcoder.jp/contests/tenka1-2014-final-open/tasks/tenka1_2014_final_d
+- https://nyaannyaan.github.io/library/modulo/multipoint-binomial-sum.hpp （Mo's Algorithm で計算するやつ）
