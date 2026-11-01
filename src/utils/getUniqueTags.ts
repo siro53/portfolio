@@ -5,6 +5,7 @@ import { slugifyStr } from "./slugify";
 type Tag = {
   tag: string;
   tagName: string;
+  count: number;
 };
 
 /**
@@ -12,17 +13,29 @@ type Tag = {
  *
  * - Drafts and scheduled posts are excluded via `postFilter()`
  * - `tag` is the slug used in URLs; `tagName` is the original label for display
+ * - `count` is the number of posts that carry the tag (each post counted once)
  * - Uniqueness is based on the slug (so differently-cased labels collapse)
  */
 export function getUniqueTags(posts: CollectionEntry<"posts">[]) {
-  const tags: Tag[] = posts
-    .filter(postFilter)
-    .flatMap(post => post.data.tags)
-    .map(tag => ({ tag: slugifyStr(tag), tagName: tag }))
-    .filter(
-      (value, index, self) =>
-        self.findIndex(tag => tag.tag === value.tag) === index
-    )
-    .sort((tagA, tagB) => tagA.tag.localeCompare(tagB.tag));
-  return tags;
+  const tagMap = new Map<string, Tag>();
+
+  for (const post of posts.filter(postFilter)) {
+    const seen = new Set<string>();
+    for (const tagName of post.data.tags) {
+      const tag = slugifyStr(tagName);
+      if (seen.has(tag)) continue;
+      seen.add(tag);
+
+      const entry = tagMap.get(tag);
+      if (entry) {
+        entry.count += 1;
+      } else {
+        tagMap.set(tag, { tag, tagName, count: 1 });
+      }
+    }
+  }
+
+  return [...tagMap.values()].sort((tagA, tagB) =>
+    tagA.tag.localeCompare(tagB.tag)
+  );
 }
