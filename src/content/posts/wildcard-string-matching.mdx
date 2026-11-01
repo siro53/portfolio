@@ -1,0 +1,92 @@
+---
+title: "ワイルドカード付き文字列の一致判定について"
+description: "ワイルドカードを含む 2 つの文字列について、全ての位置で一致するかどうかを FFT（畳み込み）を使って O((n+m) log(n+m)) で判定するアルゴリズムと、値域やオーバーフローに関する注意点をまとめます。"
+pubDatetime: 2023-01-29T10:30:06+09:00
+modDatetime: 2023-12-03T22:07:13+09:00
+tags: ["競プロ", "文字列", "FFT", "畳み込み"]
+---
+
+## 目次
+
+## TL;DR
+
+https://twitter.com/yosupot/status/1238842302010757120
+
+## 定義
+
+文字列 $S$ に対して、
+
+- $S[i]$ を $S$ の $i$ 番目の文字
+- $S[i, j]$ を $S$ の $i$ 番目から $j$ 番目までの連続部分文字列
+
+と定義する。
+アルファベットサイズを $\sigma$ とする。
+また、ここでは説明のため 1-indexed とする。
+
+## 問題
+
+> 2 つのワイルドカード付き文字列 $A, B$ があり、$n = |A|, m = |B|$ かつ $n \geq m$ であるとする。
+> $1 \leq s \leq n - m + 1$ を満たす全ての $s$ に対して、
+> $A[s, s+m-1]$ と $B[1, m]$ が一致するかどうかを調べたい。
+
+## アルゴリズム
+
+文字列 $A$ に対し、整数列 $a$ を次のように定義する。
+
+- $A[i]$ がワイルドカードならば、$a_i = 0$
+- $A[i]$ がワイルドカードでないならば、文字 $A[i]$ に対して適当に正整数を割り当て、その値を $a_i$ とする
+
+文字列 $B$ に対しても同様に整数列 $b$ を定義する。
+
+このとき、
+
+$$
+\sum_{i=1}^{m} a_{s+i-1} b_i (a_{s+i-1} - b_i)^2 = 0
+$$
+
+ならば一致していると判定できる。
+
+### 上の式のお気持ち
+
+シグマの中身が全ての $i$ において $0$ なら一致していると言える。
+
+- $a_{s+i-1}, b_i$ のどちらかが $0$（つまりワイルドカード）ならシグマの中身は当然 $0$ になる
+- $a_{s+i-1}, b_i$ がどちらも $0$ でないなら、$a_{s+i-1} = b_i$ ならばシグマの中身は $0$ になる
+
+$a_{s+i-1} - b_i$ をわざわざ 2 乗しているのは、$a_{s+i-1} < b_i$ の時シグマの中身が負になってしまい正しく判定できなくなるのを防ぐため…だと思う。
+（シグマの中身の式が全ての $i$ について $0$ 以上でないと、変に帳尻が合って合計が $0$ になってしまい誤って判定してしまう可能性がある。）
+
+### FFT で計算する
+
+ここで、FFT を使える形にするために、整数列 $b$ を反転した列を $b'$ とすると、
+
+$$
+\sum_{i=1}^{m} a_{s+i-1} b'_{m-i+1} (a_{s+i-1} - b'_{m-i+1})^2
+$$
+
+展開して、
+
+$$
+\sum_{i=1}^{m} a_{s+i-1}^{3} b'_{m-i+1} - 2 \sum_{i=1}^{m} a_{s+i-1}^{2} b_{m-i+1}^{\prime 2} + \sum_{i=1}^{m} a_{s+i-1} b_{m-i+1}^{\prime 3}
+$$
+
+よって、各 $a, b'$ について 2 乗、3 乗の列を用意しておけば、各シグマはそれぞれ FFT で計算可能な形になっている。全体で $O((n+m)\log{(n+m)})$ で計算できる。
+
+## 注意点
+
+FFT した後の列の値域は $O(m \sigma^4)$ になるのでオーバーフローには注意が必要。
+値域を $O(m \sigma^2)$ に削減する方法もある（簡単）：
+https://twitter.com/noshi91/status/1314212029423472640
+
+偽陽性を許容して FFT 2 回で計算する方法もあるらしい（未履修）：
+https://github.com/noshi91/n91lib_rs/blob/master/src/algorithm/wildcard_matching.rs
+
+アルゴリズムの元論文：
+
+- Clifford, P., & Clifford, R. (2007). Simple deterministic wildcard matching. _Information Processing Letters_, 101(2), 53-54.
+- Clifford, R., Efremenko, K., Porat, E., & Rothschild, A. (2009, January). From coding theory to efficient pattern matching. In _Proceedings of the twentieth annual ACM-SIAM symposium on Discrete algorithms_ (pp. 778-784). Society for Industrial and Applied Mathematics. （値域の削減について）
+
+## 類題
+
+- https://atcoder.jp/contests/DEGwer2023/tasks/1202Contest_h
+  - 本質はワイルドカードを $0$ に割り当て、一致条件を差の 2 乗が $0$ であることに言い換えて畳み込むこと、なので色々応用できそう。
