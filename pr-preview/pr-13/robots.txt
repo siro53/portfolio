@@ -1,0 +1,5 @@
+
+User-agent: *
+Allow: /
+
+Sitemap: https://siro53.github.io/portfolio/pr-preview/pr-13/sitemap-index.xml
