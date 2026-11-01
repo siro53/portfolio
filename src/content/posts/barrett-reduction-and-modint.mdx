@@ -1,0 +1,116 @@
+---
+title: "barrett reduction と modint について"
+description: "あまりの計算を除算なしで行う barrett reduction のアルゴリズムと誤差の証明、実装上の工夫、そして modint の高速化に使えるのかについてまとめます。"
+pubDatetime: 2023-02-14T23:14:20+09:00
+modDatetime: 2026-11-02T00:00:00+09:00
+tags: ["競プロ", "アルゴリズム", "barrett reduction", "modint"]
+---
+
+## Table of contents
+
+## barrett reduction
+
+`a % b` のようなあまりを取る計算を、適切な前計算によって `%` や `/` などを使わずに行う手法。
+一般的にあまりを取る計算は遅いため、それを比較的高速な演算に置き換えて高速化する目的で使われる。
+あまりを取る演算を他の比較的高速な演算に置き換える手法は他にもある。barrett reduction はそれらの手法の 1 つ。
+
+### アルゴリズム
+
+> 法 $m\space(0<m<2^{31})$ と整数 $0 \leq z < m^2$ に対して、前計算で 1 度だけ除算を行い、$z\space\textrm{mod}\space m$ を **割り算やあまりを取る計算を使わずに** 計算する。
+
+$z\space\textrm{mod}\space m = z - \lfloor z/m \rfloor \cdot m$ なので、$\lfloor z/m \rfloor$ が計算できれば良い。
+
+$m_{\textrm{inv}} = \lceil 2^{64}/m \rceil$ とおく。
+$z \cdot m_{\textrm{inv}} \simeq z \cdot 2^{64} / m$ なので、$\lfloor z \cdot m_{\textrm{inv}} / 2^{64} \rfloor \simeq \lfloor z / m \rfloor$ である。
+
+$m_{\textrm{inv}}$ は前処理で 1 度だけ除算を行い計算しておけばよい。
+$\lfloor z \cdot m_{\textrm{inv}} / 2^{64} \rfloor$ は、$z \cdot m_{\textrm{inv}}$ を 64bit 右シフトすることで計算できる。
+よって、$\lfloor z / m \rfloor$ を計算できた。
+
+...流石に嘘。
+$\lfloor z \cdot m_{\textrm{inv}} / 2^{64} \rfloor$ はあくまで $\lfloor z / m \rfloor$ の近似値だから、このままでは正しく計算できているとは言えない。
+
+実は、$\lfloor z \cdot m_{\textrm{inv}} / 2^{64} \rfloor$ と $\lfloor z / m \rfloor$ の誤差が高々 $1$ であることが証明できる。
+
+#### 証明
+
+$m=1$ の時、$z=0$ より誤差は $0$ である。
+以下、$m>1$ の場合を考える。
+
+$m_{\textrm{inv}}=\lceil 2^{64}/m \rceil$ より、$m \cdot m_{\textrm{inv}}=2^{64}+r\space(0\leq r<m)$ と表せる。（天井関数の性質より）
+また、$z = cm + d \space (0\leq c, d < m)$ と表せる。ここで、$c = \lfloor z/m \rfloor, d = z\space\textrm{mod}\space m$ である。
+商 $c$ に着目すると、
+
+$$
+\begin{aligned}
+z \cdot m_{\textrm{inv}} &= (cm+d) \cdot m_{\textrm{inv}} \\
+&= cm \cdot m_{\textrm{inv}} + d \cdot m_{\textrm{inv}} \\
+&= c \cdot (2^{64}+r) + d \cdot m_{\textrm{inv}} \\
+&= c \cdot 2^{64} + c \cdot r + d \cdot m_{\textrm{inv}}
+\end{aligned}
+$$
+
+$c \cdot r + d \cdot m_{\textrm{inv}}$ に着目すると、
+
+$$
+\begin{aligned}
+c \cdot r + d \cdot m_{\textrm{inv}} &< m \cdot m + m \cdot m_{\textrm{inv}} \\
+&= m \cdot m + 2^{64} + r \\
+&< m \cdot m + 2^{64} + m \\
+&= 2^{64} + m(m+1) \\
+&< 2^{64} + 2^{64} \\
+&= 2 \cdot 2^{64}
+\end{aligned}
+$$
+
+以上より、$c \cdot 2^{64} \leq z \cdot m_{\textrm{inv}} < (c+2) \cdot 2^{64}$ である。
+全体を $2^{64}$ で割る（切り捨て）と、$c \leq \lfloor z \cdot m_{\textrm{inv}} / 2^{64} \rfloor < c+2$ である。
+
+$c = \lfloor z/m \rfloor$ なので、$\lfloor z \cdot m_{\textrm{inv}} / 2^{64} \rfloor$ は $\lfloor z/m \rfloor$ と誤差が高々 $1$ であることが分かった。
+
+アルゴリズムの説明の続きに戻る。以下、$v = \lfloor z \cdot m_{\textrm{inv}} / 2^{64} \rfloor$ とする。
+
+(1) $v = c$ の時、
+明らかに $z - v \cdot m = d$ である。
+よって、$z - v \cdot m$ を計算することで $z\space\textrm{mod}\space m$ を得る。
+
+(2) $v = c + 1$ の時、
+$z - v \cdot m = z - (c+1)\cdot m = d - m$ である。
+この時、$0\leq d < m$ より、$-m \leq z - v \cdot m < 0$ である。
+よって、上の不等式を満たす場合のみ $z - v \cdot m + m$ を計算することで $z\space\textrm{mod}\space m$ を得る。
+
+以上より、前計算で 1 回だけ除算を用いることで、$z\space\textrm{mod}\space m$ を計算できた。
+
+#### 余談
+
+$z\space\textrm{mod}\space m$ を計算する過程で $\lfloor z/m \rfloor$ を計算していることから、あまりの計算だけでなく割り算の高速化にも使える。
+
+### 実装
+
+[AtCoder Library の internal_math.hpp](https://github.com/atcoder/ac-library/blob/f669803f78c3acc72671ca6e41b4eeb0469364a8/atcoder/internal_math.hpp#L25) に実装がある。
+
+#### 前計算
+
+$m_{\textrm{inv}}=\lceil 2^{64}/m \rceil$ を計算する。
+切り上げなので、`(((__uint128_t)(1) << 64) + m - 1) / m = (((__uint128_t)(1) << 64) - 1) / m + 1` を計算すればよいが、128bit 整数を使わずに計算できる。
+
+符号なし整数はオーバーフローした際の挙動が定義されている。（例えば 64bit 符号なし整数はオーバーフローする時、$\textrm{mod}\space 2^{64}$ を取った値になる）
+よって、`(-1ULL / m) + 1` と計算すればよい。
+
+#### 誤差の判定部分
+
+$m < 2^{31}$ なので、$z - v \cdot m$ を 32bit 符号なし整数で計算した場合、$z-v\cdot m$ が負になるならば、
+オーバーフロー時の挙動から $m\leq z-v\cdot m < 2^{32}$ となる。
+よって、64bit 符号あり整数にキャストする必要はなく、単に $z - v \cdot m \geq m$ で判定できる。
+
+## barrett reduction は modint の高速化になる？
+
+barrett reduction のようなあまりの計算の最適化は、実はコンパイル時に $m$ が分かっている（コンパイル時定数である）ならば、コンパイラが自動でやってくれるようになっている。
+
+よって、例えば $998244353, 10^9+7$ のような、プログラムを実行する前から分かっている値で mod を取るような場合では勝手に最適化されるので、barrett reduction のような高速化をする必要はない。（AtCoder Library でいうところの `static_modint`）
+
+しかし、たまに OEIS 対策などの理由で mod の値が入力として与えられる場合がある。このような時は、barrett reduction を自分で実装して使うことで高速化できることがある。（AtCoder Library でいうところの `dynamic_modint`。いわゆる実行時 modint）
+
+## 参考文献
+
+- https://rsk0315.hatenablog.com/entry/2021/01/18/065720#internalbarrett
