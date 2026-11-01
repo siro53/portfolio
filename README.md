@@ -68,7 +68,7 @@ import Datetime from "@/components/Datetime.astro";
 
 - `pubDatetime` が未来の日付の記事は、その日になるまで一覧に表示されません。
 - OG 画像を省略すると、タイトルから自動生成されます（日本語フォントは Noto Sans JP）。
-- `## Table of contents` という見出しを書くと、その位置に目次が自動挿入されます。
+- `## 目次` という見出しを書くと、その位置に目次が自動挿入されます。
 - コードブロックは言語名を付けると Shiki でシンタックスハイライトされます（ライト: min-light、ダーク: night-owl）。`file=` でファイル名ラベル、`// [!code highlight]` や `// [!code ++]` / `// [!code --]` で行の強調や差分表示ができます。
 
 ````mdx
