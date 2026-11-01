@@ -1,0 +1,195 @@
+---
+title: "拡張ユークリッドの互除法"
+description: "ユークリッドの互除法の正当性の証明から始めて、ベズーの等式 ax + by = gcd(a, b) の整数解を求める拡張ユークリッドの互除法を再帰・非再帰の 2 通りで説明し、得られる解の絶対値の上界についても証明します。"
+pubDatetime: 2023-02-17T09:53:38+09:00
+modDatetime: 2023-02-17T21:03:54+09:00
+tags: ["競プロ", "数学", "整数論", "ユークリッドの互除法"]
+---
+
+## 目次
+
+## ユークリッドの互除法
+
+ユークリッドの互除法は、次の性質を用いて 2 つの整数 $a, b$ の最大公約数を求めるアルゴリズムである。
+
+> 2 つの整数 $a, b$ に対して整数 $q, r$ が存在して、$a = bq + r$ と書ける時、
+> $\gcd(a, b) = \gcd(b, r)$ が成り立つ。
+
+### 証明
+
+$b, r$ の最大公約数を $g_0$ とする。この時、$bq$ は $g_0$ の倍数である。
+よって、$bq + r$ は $g_0$ の倍数であり、これは $a$ に等しいので $g_0$ は $a$ の公約数。
+ゆえに $\gcd(b, r) \leq \gcd(a, b)$ が成り立つ。
+
+また、$a, b$ の最大公約数を $g_1$ とする。この時、$bq$ も $g_1$ の倍数である。
+よって、$a - bq$ も $g_1$ の倍数であり、これは $r$ に等しいので $g_1$ は $r$ の公約数。
+ゆえに $\gcd(a, b) \leq \gcd(b, r)$ が成り立つ。
+
+以上より、$\gcd(a, b) = \gcd(b, r)$ である。
+また、以上のことから $\gcd(a, b) = \gcd(a, b - a) = \gcd(a, a + b)$ が成り立つことも分かる。
+
+この性質を用いて $a, b$ を $b, r$ に置き換え、繰り返し適用する。
+$r$ は $a$ を $b$ で割った余りだから $r < b$ であり、繰り返し適用するといずれ余りが $0$ になる。
+よってこのアルゴリズムは有限回で停止し、$r = 0$ の時の $b$ の値が最大公約数になっている。
+計算量は $O(\log{(\max(a, b))})$ であることが知られている。（ラメの定理）
+
+コードは以下の通り：
+
+```python
+def gcd(a: int, b: int) -> int:
+    r = a % b
+    if r == 0:
+        return b
+    return gcd(b, r)
+```
+
+## 拡張ユークリッドの互除法
+
+ユークリッドの互除法を用いて、等式 $ax + by = \gcd(a, b)$ を満たす解 $(x, y)$ を見つけることができる。
+これを拡張ユークリッドの互除法という。また、$ax + by = \gcd(a, b)$ は **ベズーの等式** と呼ばれる。
+両辺を $\gcd(a, b)$ で割ることができるため、一般性を失わずに問題は次のように置き換えられる：
+
+> 2 つの互いに素な整数 $a, b$ に対して、
+> $ax + by = 1$ を満たす整数解 $(x, y)$ を 1 つ出力せよ。
+
+なお、もし解 $(x, y)$ が存在する時 $(x - b, y + a)$ もしくは $(x + b, y - a)$ も解であるため、解は存在するならば無数に存在する。
+
+次に、この解を求めるアルゴリズムを説明する。
+再帰関数を用いて求める方法と、非再帰で求める方法の 2 通りある。
+
+### 再帰
+
+$a = bq + r$ を用いると、上の等式は
+
+$$
+(bq + r)x + by = 1
+$$
+
+と変形できる。整理すると、$b(qx + y) + rx = 1$ となる。$X = qx + y, Y = x$ とおくと、
+
+$$
+bX + rY = 1
+$$
+
+となり、これを再帰的に適用することでユークリッドの互除法と同じ議論でいずれ $r = 0$ になり、解 $X, Y$ が求まる。
+$X = qx + y, Y = x$ から $x = Y, y = X - qY$ と復元できるので、元の解 $x, y$ が求まる。
+
+疑似コードは以下。
+
+```python
+# ax+by=1 の整数解 (x, y) を求める。gcd(a, b) = 1 である必要がある。
+def extend_gcd(a: int, b: int) -> Tuple[int, int]:
+    if b == 0:
+        assert a == 1
+        return 1, 0
+    q, r = a // b, a % b
+    X, Y = extend_gcd(b, r)
+    return Y, X - q * Y
+```
+
+### 非再帰
+
+2 つの式
+
+$$
+\begin{aligned}
+a x_s + b y_s &= s \\
+a x_t + b y_t &= t
+\end{aligned}
+$$
+
+を管理する。$s, t$ に対してユークリッドの互除法を適用することを考える。
+$u = s \bmod t$ とおき、これに対する式 $a x_u + b y_u = u$ を考える。
+$u = s - \lfloor s/t \rfloor \cdot t$ より、
+
+$$
+\begin{aligned}
+a x_u + b y_u &= (a x_s + b y_s) - (a x_t + b y_t) \lfloor s/t \rfloor \\
+&= a(x_s - \lfloor s/t \rfloor x_t) + b(y_s - \lfloor s/t \rfloor y_t)
+\end{aligned}
+$$
+
+よって、
+
+$$
+\begin{aligned}
+x_u &= x_s - \lfloor s/t \rfloor x_t \\
+y_u &= y_s - \lfloor s/t \rfloor y_t
+\end{aligned}
+$$
+
+が成り立つ。
+以上より、初期条件を
+
+$$
+\begin{aligned}
+a \cdot 1 + b \cdot 0 &= a \\
+a \cdot 0 + b \cdot 1 &= b
+\end{aligned}
+$$
+
+とし、$(s, t)$ を $(t, u)$ に置き換えることを繰り返し適用することで解が求まる。
+
+疑似コードは以下。
+
+```python
+# ax+by=1 の整数解 (x, y) を求める。gcd(a, b) = 1 である必要がある。
+def extend_gcd(a: int, b: int) -> Tuple[int, int]:
+    x_s, y_s, s = 1, 0, a
+    x_t, y_t, t = 0, 1, b
+    while t != 0:
+        temp = s // t
+        u = s - temp * t
+        x_u = x_s - temp * x_t
+        y_u = y_s - temp * y_t
+        x_s, y_s, s = x_t, y_t, t
+        x_t, y_t, t = x_u, y_u, u
+    assert s == 1  # s = gcd(a, b)
+    return x_s, y_s
+```
+
+## 拡張ユークリッドの互除法で得られる解の値域
+
+互いに素な 2 つの整数 $a, b$ に対して $ax + by = 1$ を満たす整数解を拡張ユークリッドの互除法で求めた時、
+その整数解は $|x| \leq |b|, |y| \leq |a|$ を満たす。
+
+### 証明
+
+一般性を失わず $a > b > 0$ とする。
+
+(1) 拡張ユークリッドの互除法を繰り返し用いて $b = 0$ となる 1 つ前のステップについて考える。
+つまりある整数 $q \geq 1$ が存在して $a = q, b = 1$ が成り立つ時を考える。
+この時、解は $(0, 1)$ なので、$|0| \leq |b|, |1| \leq |a|$ より成立。
+
+(2) $a = qb + r\space(0 \leq r < b)$ とする。$bz + rw = 1$ を満たす解 $(z, w)$ が存在し、$|z| \leq |r|, |w| \leq |b|$ が成り立つと仮定する。
+
+$$
+\begin{aligned}
+ax + by &= 1 \\
+(qb + r)x + by &= 1 \\
+b(qx + y) + rx &= 1
+\end{aligned}
+$$
+
+から $x = w, y = z - qw$ である。
+仮定より、$|x| = |w| \leq |b|$。
+また、$|y| = |z - qw| \leq |z| + |qw| \leq |r| + |qb| = |a|$。
+故に $|x| \leq |b|, |y| \leq |a|$。
+
+(1)(2) より帰納的に $|x| \leq |b|, |y| \leq |a|$ が成り立つ。
+
+このことは、
+
+- 拡張ユークリッドの互除法で求める解は絶対値が最小の解であること
+- 拡張ユークリッドの互除法の各ステップで出てくる変数の絶対値は必ず $\max(|a|, |b|)$ 以下であること
+
+を意味する。特に後者の性質はオーバーフローを考慮するときに大切な性質である。
+
+## 参考文献
+
+- https://manabitimes.jp/math/672
+- https://ja.wikipedia.org/wiki/ユークリッドの互除法
+- https://noshi91.hatenablog.com/entry/2019/04/01/184957
+- https://satashun.hatenablog.com/entry/2019/12/30/231319
+- https://trap.jp/post/1275/
+- https://ja.wikipedia.org/wiki/ベズーの等式
