@@ -22,10 +22,20 @@ import { transformerFileName } from "./src/utils/transformers/fileName";
 import { rehypeTableWrapper } from "./src/utils/rehypeTableWrapper";
 import config from "./astro-paper.config";
 
+// 本番の base パス。GitHub Pages のリポジトリ名に合わせる（リポジトリ名を変えたら
+// ここと astro-paper.config.ts の url を変更する）
+const PRODUCTION_BASE = "/portfolio";
+
+// PR プレビュー用。.github/workflows/preview.yml が
+// PREVIEW_BASE_PATH="/portfolio/pr-preview/pr-<番号>" を渡すと、その配下で動くように
+// base と site を差し替えてビルドする。未指定（通常のビルド・本番）なら本番設定になる
+const previewBasePath = process.env.PREVIEW_BASE_PATH?.replace(/\/+$/, "");
+const base = previewBasePath || PRODUCTION_BASE;
+const site = new URL(`${base}/`, config.site.url).href;
+
 export default defineConfig({
-  site: config.site.url,
-  // GitHub Pages のリポジトリ名。リポジトリ名を変えたらここと astro-paper.config.ts の url を変更する
-  base: "/portfolio",
+  site,
+  base,
   integrations: [
     mdx(),
     sitemap({
@@ -90,6 +100,12 @@ export default defineConfig({
       PUBLIC_GOOGLE_SITE_VERIFICATION: envField.string({
         access: "public",
         context: "client",
+        optional: true,
+      }),
+      // PR プレビューのビルドかどうかの判定に使う（Layout.astro で noindex を付ける）
+      PREVIEW_BASE_PATH: envField.string({
+        access: "public",
+        context: "server",
         optional: true,
       }),
     },

@@ -92,7 +92,8 @@ $$
 ## ディレクトリ構成
 
 ```text
-├── .github/workflows/deploy.yml   GitHub Pages へのデプロイ用ワークフロー
+├── .github/workflows/deploy.yml   GitHub Pages への本番デプロイ用ワークフロー
+├── .github/workflows/preview.yml  PR ごとのプレビューサイトを配信するワークフロー
 ├── astro-paper.config.ts          サイト名・著者・SNS リンクなどテーマの設定
 ├── astro.config.ts                Astro の設定（base、i18n、フォント、Markdown プラグイン）
 ├── public/                        そのまま配信する静的ファイル（favicon、デフォルト OG 画像）
@@ -119,9 +120,30 @@ $$
 
 ## デプロイ
 
-`main` ブランチに push すると、GitHub Actions（`.github/workflows/deploy.yml`）がビルドして GitHub Pages に自動でデプロイします。
+`main` ブランチに push すると、GitHub Actions（`.github/workflows/deploy.yml`）がビルドし、結果を `gh-pages` ブランチの直下に push します。GitHub Pages はこの `gh-pages` ブランチから配信します。
 
-初回のみ、GitHub リポジトリの **Settings → Pages** で Source を **GitHub Actions** に設定してください。
+初回のみ、`main` への最初のデプロイが終わって `gh-pages` ブランチができた後に、GitHub リポジトリの **Settings → Pages** で Source を **Deploy from a branch**、Branch を **`gh-pages` / `/ (root)`** に設定してください。`gh` CLI なら次のコマンドでも設定できます。
+
+```sh
+gh api -X PUT repos/siro53/portfolio/pages \
+  -f build_type=legacy -f "source[branch]=gh-pages" -f "source[path]=/"
+```
+
+`gh-pages` ブランチは GitHub Actions が管理するので、手で編集しないでください。
+
+## PR プレビュー
+
+`main` 以外のブランチから Pull Request を作ると、GitHub Actions（`.github/workflows/preview.yml`）がそのブランチをビルドして
+
+```
+https://siro53.github.io/portfolio/pr-preview/pr-<PR 番号>/
+```
+
+に配信し、PR に URL をコメントします。PR にコミットを push するたびに更新され、PR を閉じる（マージする）と削除されます。プレビューページには `noindex` が付くので検索エンジンには登録されません。
+
+- 対象は同一リポジトリ内のブランチからの PR です（フォークからの PR は対象外）
+- 実体は `gh-pages` ブランチの `pr-preview/pr-<PR 番号>/` ディレクトリです。`main` のデプロイはこのディレクトリを消さずに残します
+- ローカルで同じ条件のビルドを試すには `PREVIEW_BASE_PATH=/portfolio/pr-preview/pr-0 pnpm build` を実行します
 
 ## クレジット
 

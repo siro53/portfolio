@@ -1,39 +1,52 @@
 name: Deploy to GitHub Pages
 
+# main への push で本番サイトをビルドし、gh-pages ブランチの直下に配置する。
+# GitHub Pages は gh-pages ブランチから配信する設定にしておく（Settings → Pages → Deploy from a branch）。
+# PR プレビュー（.github/workflows/preview.yml）は同じブランチの pr-preview/ 配下に置かれるので、
+# ここでは clean-exclude で消さないようにしている。
+
 on:
   push:
     branches: [main]
   workflow_dispatch:
 
 permissions:
-  contents: read
-  pages: write
-  id-token: write
+  contents: write
 
 concurrency:
-  group: pages
+  group: deploy-production
   cancel-in-progress: true
 
 jobs:
-  build:
+  deploy:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
 
-      - name: Install, build, and upload site
-        uses: withastro/action@v6
-        with:
-          node-version: 22
-          package-manager: pnpm@10.0.0
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v6 # package.json の packageManager からバージョンを読む
 
-  deploy:
-    needs: build
-    runs-on: ubuntu-latest
-    environment:
-      name: github-pages
-      url: ${{ steps.deployment.outputs.page_url }}
-    steps:
-      - name: Deploy to GitHub Pages
-        id: deployment
-        uses: actions/deploy-pages@v5
+      - name: Set up Node.js
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build
+        run: pnpm build
+
+      - name: Deploy to gh-pages branch
+        uses: JamesIves/github-pages-deploy-action@v4
+        with:
+          folder: dist
+          branch: gh-pages
+          clean: true
+          # PR プレビューは消さない
+          clean-exclude: pr-preview/
+          # force push すると進行中の PR プレビューを巻き戻してしまうので rebase する
+          force: false
+          commit-message: "Deploy ${{ github.sha }}"

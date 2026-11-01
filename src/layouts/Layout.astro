@@ -4,6 +4,7 @@ import { ClientRouter } from "astro:transitions";
 import { resolveDefaultOgImagePath } from "@/utils/resolveDefaultOgImagePath";
 import { getAssetPath } from "@/utils/withBase";
 import config from "@/config";
+import { PREVIEW_BASE_PATH } from "astro:env/server";
 import "@/styles/global.css";
 import "katex/dist/katex.min.css";
 
@@ -25,6 +26,8 @@ const {
 
 const socialImageURL = new URL(ogImage, Astro.site ?? Astro.url);
 const rssHref = getAssetPath("rss.xml");
+// PR プレビュー（pr-preview/ 配下）のビルドでは検索エンジンにインデックスさせない
+const isPreview = Boolean(PREVIEW_BASE_PATH);
 ---
 
 <!doctype html>
@@ -40,6 +43,7 @@ const rssHref = getAssetPath("rss.xml");
     <link rel="icon" href={getAssetPath("favicon.ico")} />
     <link rel="canonical" href={canonicalURL} />
     <meta name="generator" content={Astro.generator} />
+    {isPreview && <meta name="robots" content="noindex, nofollow" />}
 
     <!-- Font -->
     <Font
